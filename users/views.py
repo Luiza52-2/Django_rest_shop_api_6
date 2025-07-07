@@ -15,7 +15,7 @@ from .serializers import (
 from .models import ConfirmationCode
 import random
 import string
-
+from users.models import CustomUser
 
 class AuthorizationAPIView(APIView):
     def post(self, request):
@@ -47,13 +47,13 @@ class RegistrationAPIView(CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        username = serializer.validated_data['username']
+        email = serializer.validated_data['email']
         password = serializer.validated_data['password']
 
         # Use transaction to ensure data consistency
         with transaction.atomic():
-            user = User.objects.create_user(
-                username=username,
+            user = CustomUser.objects.create_user(
+                email=email,
                 password=password,
                 is_active=False
             )
