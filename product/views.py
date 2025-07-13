@@ -2,10 +2,11 @@ from collections import OrderedDict
 from django.db import transaction
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
+from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView, ListAPIView
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.views import APIView
+from common.permissions import IsOwner, IsAnonymous, IsModerator
 
 from .models import Category, Product, Review
 from .serializers import (
@@ -52,6 +53,7 @@ class CategoryDetailAPIView(RetrieveUpdateDestroyAPIView):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     lookup_field = 'id'
+    permission_classes = [IsOwner | IsAnonymous]  # Assuming you want to allow both authenticated and anonymous users
 
     def put(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -68,6 +70,10 @@ class ProductListCreateAPIView(ListCreateAPIView):
     queryset = Product.objects.select_related('category').all()
     serializer_class = ProductSerializer
     pagination_class = CustomPagination
+    def get_permissions(self):
+        if self.request.user.is_staff:
+            return [IsModerator()]
+        return [IsOwner()]
 
     def post(self, request, *args, **kwargs):
         serializer = ProductValidateSerializer(data=request.data)
@@ -84,7 +90,8 @@ class ProductListCreateAPIView(ListCreateAPIView):
             title=title,
             description=description,
             price=price,
-            category=category
+            category=category,
+            owner=request.user  # Assuming the user is authenticated
         )
 
         return Response(data=ProductSerializer(product).data,
@@ -95,6 +102,10 @@ class ProductDetailAPIView(RetrieveUpdateDestroyAPIView):
     queryset = Product.objects.select_related('category').all()
     serializer_class = ProductSerializer
     lookup_field = 'id'
+    def get_permissions(self):
+        if self.request.user.is_staff:
+            return [IsModerator()]
+        return [IsOwner()]
 
     def put(self, request, *args, **kwargs):
         product = self.get_object()
@@ -109,6 +120,13 @@ class ProductDetailAPIView(RetrieveUpdateDestroyAPIView):
 
         return Response(data=ProductSerializer(product).data)
 
+class OwnerProductListAPIView(ListAPIView):
+    serializer_class = ProductSerializer
+    
+
+    def get_queryset(self):
+        user = self.request.user
+        return Product.objects.filter(owner=user).select_related('category').all()
 
 class ReviewViewSet(ModelViewSet):
     queryset = Review.objects.all()
