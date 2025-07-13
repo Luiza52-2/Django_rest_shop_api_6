@@ -7,6 +7,9 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.views import APIView
 from common.permissions import IsOwner, IsAnonymous, IsModerator
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.tokens import AccessToken
+from datetime import date
 
 from .models import Category, Product, Review
 from .serializers import (
@@ -39,6 +42,7 @@ class CategoryListCreateAPIView(ListCreateAPIView):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     pagination_class = CustomPagination
+    authentication_classes = [JWTAuthentication]  # Assuming you want to allow both authenticated and anonymous users
 
     def post(self, request, *args, **kwargs):
         serializer = CategoryValidateSerializer(data=request.data)
@@ -70,12 +74,34 @@ class ProductListCreateAPIView(ListCreateAPIView):
     queryset = Product.objects.select_related('category').all()
     serializer_class = ProductSerializer
     pagination_class = CustomPagination
+    
     def get_permissions(self):
         if self.request.user.is_staff:
             return [IsModerator()]
         return [IsOwner()]
 
     def post(self, request, *args, **kwargs):
+        if not request.auth:
+            return Response({'detail': 'Unauthorized'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        token = AccessToken(str(request.auth)) 
+        user_email = token.get('email') 
+       
+        print('User email:', user_email)
+        user = request.user
+
+        # Проверяем, есть ли дата рождения
+        if not user.birthday:
+            return Response({'error': 'Дата рождения не указана.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Вычисляем возраст
+        today = date.today()
+        birthday = user.birthday
+        age = today.year - birthday.year - ((today.month, today.day) < (birthday.month, birthday.day))
+
+        if age < 18:
+            return Response({'error': 'Вам должно быть 18 лет, чтобы создать продукт.'},
+                            status=status.HTTP_403_FORBIDDEN)
         serializer = ProductValidateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -84,6 +110,7 @@ class ProductListCreateAPIView(ListCreateAPIView):
         description = serializer.validated_data.get('description')
         price = serializer.validated_data.get('price')
         category = serializer.validated_data.get('category')
+        
 
         # Create product
         product = Product.objects.create(

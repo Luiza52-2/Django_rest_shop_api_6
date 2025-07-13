@@ -6,8 +6,14 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
 from rest_framework.generics import CreateAPIView
+from rest_framework_simplejwt.views import TokenObtainPairView
+from users.serializers import CustomTokenObtainPairSerializer
+
+
+
 
 from .serializers import (
+    CustomTokenObtainPairSerializer,
     RegisterValidateSerializer,
     AuthValidateSerializer,
     ConfirmationSerializer
@@ -17,6 +23,10 @@ import random
 import string
 from users.models import CustomUser
 
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
+    
 class AuthorizationAPIView(CreateAPIView):
     serializer_class = AuthValidateSerializer
     def post(self, request):
@@ -100,3 +110,5 @@ class ConfirmUserAPIView(CreateAPIView):
                 'key': token.key
             }
         )
+    
+
