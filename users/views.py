@@ -8,8 +8,8 @@ from rest_framework.authtoken.models import Token
 from rest_framework.generics import CreateAPIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 from users.serializers import CustomTokenObtainPairSerializer
-
-
+from common.confirmation import save_confirmation_code
+from common.confirmation import delete_confirmation_code
 
 
 from .serializers import (
@@ -18,7 +18,7 @@ from .serializers import (
     AuthValidateSerializer,
     ConfirmationSerializer
 )
-from .models import ConfirmationCode
+
 import random
 import string
 from users.models import CustomUser
@@ -70,12 +70,8 @@ class RegistrationAPIView(CreateAPIView):
             )
 
             # Create a random 6-digit code
-            code = ''.join(random.choices(string.digits, k=6))
-
-            confirmation_code = ConfirmationCode.objects.create(
-                user=user,
-                code=code
-            )
+            code = save_confirmation_code(user.email)
+            
 
         return Response(
             status=status.HTTP_201_CREATED,
@@ -101,7 +97,7 @@ class ConfirmUserAPIView(CreateAPIView):
 
             token, _ = Token.objects.get_or_create(user=user)
 
-            ConfirmationCode.objects.filter(user=user).delete()
+            delete_confirmation_code(user.email)
 
         return Response(
             status=status.HTTP_200_OK,

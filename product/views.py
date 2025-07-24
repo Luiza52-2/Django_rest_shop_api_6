@@ -10,6 +10,7 @@ from common.permissions import IsOwner, IsAnonymous, IsModerator
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import AccessToken
 from datetime import date
+from django.core.cache import cache
 
 from .models import Category, Product, Review
 from .serializers import (
@@ -74,7 +75,18 @@ class ProductListCreateAPIView(ListCreateAPIView):
     queryset = Product.objects.select_related('category').all()
     serializer_class = ProductSerializer
     pagination_class = CustomPagination
-    
+    permission_classes = [IsOwner | IsAnonymous] 
+    def get(self, request, *args, **kwargs):
+        cached_data = cache.get('product_list')
+        if cached_data:
+           print('работает redis')
+           return Response (data=cached_data, status=status.HTTP_200_OK)
+        response = super().get(request, *args, **kwargs)
+        print(response.data, 'обычный response')
+        if response.data.get('total', 0) > 0:
+            cache.set('product_list', response.data, timeout=120)
+        return response
+
     def get_permissions(self):
         if self.request.user.is_staff:
             return [IsModerator()]
