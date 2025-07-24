@@ -57,4 +57,5 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         return token
 
 
-       
+class GoogleLoginSerializer(serializers.Serializer):
+    code = serializers.CharField(required=True)
