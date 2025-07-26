@@ -10,7 +10,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from users.serializers import CustomTokenObtainPairSerializer
 from common.confirmation import save_confirmation_code
 from common.confirmation import delete_confirmation_code
-
+from users.tasks import sent_otp_email
 
 from .serializers import (
     CustomTokenObtainPairSerializer,
@@ -71,7 +71,8 @@ class RegistrationAPIView(CreateAPIView):
 
             # Create a random 6-digit code
             code = save_confirmation_code(user.email)
-            
+         
+            sent_otp_email.delay(email, code)   
 
         return Response(
             status=status.HTTP_201_CREATED,
@@ -80,6 +81,7 @@ class RegistrationAPIView(CreateAPIView):
                 'confirmation_code': code
             }
         )
+        
 
 
 class ConfirmUserAPIView(CreateAPIView):
